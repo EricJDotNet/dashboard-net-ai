@@ -1,11 +1,16 @@
-using System.Net.Http;
-using System.Net.Http.Json;
-using System.Threading.Tasks;
+using Auth0.ManagementApi.Models;
+using Dashboard.Net.AI.Models;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Dashboard.Net.AI.Models;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace Dashboard.Net.AI.Services
 {
@@ -13,7 +18,9 @@ namespace Dashboard.Net.AI.Services
     {
         private readonly HttpClient _http;
         private readonly string _apiKey;
-        private readonly string _baseGeoUrl;
+		private readonly string _mapBoxApiKey;
+		private readonly string _baseGeoUrl;
+		private readonly string _baseMapBoxUrl;
         private readonly string _baseWeatherUrl = "http://api.openweathermap.org/data/2.5";
         private readonly ILogger<WeatherService> _logger;
 
@@ -21,35 +28,67 @@ namespace Dashboard.Net.AI.Services
         {
             _http = http;
             _apiKey = config["OpenWeatherMap:ApiKey"] ?? string.Empty;
-            _baseGeoUrl = config["OpenWeatherMap:GeoBaseUrl"] ?? "http://api.openweathermap.org/geo/1.0";
-            _logger = logger;
+			_mapBoxApiKey = config["Mapbox:ApiKey"] ?? string.Empty;
+			_baseGeoUrl = config["OpenWeatherMap:GeoBaseUrl"] ?? "http://api.openweathermap.org/geo/1.0";
+			_baseMapBoxUrl = config["Mapbox:BaseUrl"] ?? "https://api.mapbox.com/search/geocode/v6";
+			_logger = logger;
         }
 
-        // Calls reverse geocoding
-        public async Task<string?> ReverseGeocodeAsync(double latitude, double longitude, int limit = 1)
+		public async Task<MapboxV6Response> GetAutocompleteResultsAsync(string query)
+		{
+			var encodedQuery = Uri.EscapeDataString(query);
+			var url = $"{_baseMapBoxUrl}/forward?q={encodedQuery}";
+			if (!string.IsNullOrWhiteSpace(_apiKey))
+				url += $"&access_token={WebUtility.UrlEncode(_mapBoxApiKey)}";
+
+			using (HttpClient client = new HttpClient())
+			{
+				try
+				{
+					using (Stream stream = await client.GetStreamAsync(url))
+					{
+						// 2. Deserialize directly from the stream
+						// This is the modern, high-performance way to do it
+						var result = await System.Text.Json.JsonSerializer.DeserializeAsync<MapboxV6Response>(stream);
+                        return result;
+					}
+				}
+				catch (HttpRequestException ex)
+				{
+					Console.WriteLine($"Error: {ex.Message}");
+					return null;
+				}
+			}
+		}
+
+		// Calls reverse geocoding
+		public async Task<MapboxV6Response?> ReverseGeocodeAsync(double latitude, double longitude, int limit = 1)
         {
             try
             {
-                var url = $"{_baseGeoUrl}/reverse?lat={latitude}&lon={longitude}&limit={limit}";
+                var url = $"{_baseMapBoxUrl}/reverse?longitude={longitude}&latitude{latitude}";
                 if (!string.IsNullOrWhiteSpace(_apiKey))
-                    url += $"&appid={System.Net.WebUtility.UrlEncode(_apiKey)}";
+                    url += $"?access_token={WebUtility.UrlEncode(_mapBoxApiKey)}";
 
-                var json = await _http.GetStringAsync(url);
-                using var doc = System.Text.Json.JsonDocument.Parse(json);
-                var root = doc.RootElement;
-
-                if (root.ValueKind == System.Text.Json.JsonValueKind.Array && root.GetArrayLength() > 0)
-                {
-                    var first = root[0];
-                    if (first.TryGetProperty("name", out var nameProp) && nameProp.ValueKind == System.Text.Json.JsonValueKind.String)
-                    {
-                        return nameProp.GetString();
-                    }
-                }
-
-                return null;
+				using (HttpClient client = new HttpClient())
+				{
+					try
+					{
+						using (Stream stream = await client.GetStreamAsync(url))
+						{
+							// 2. Deserialize directly from the stream
+							// This is the modern, high-performance way to do it
+							return await System.Text.Json.JsonSerializer.DeserializeAsync<MapboxV6Response>(stream);
+						}
+					}
+					catch (HttpRequestException ex)
+					{
+						Console.WriteLine($"Error: {ex.Message}");
+						return null;
+					}
+				}
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error reverse geocoding lat={Latitude} lon={Longitude}", latitude, longitude);
                 return null;
@@ -73,9 +112,9 @@ namespace Dashboard.Net.AI.Services
                     baseCurrent = "http://api.openweathermap.org/data/2.5";
                 }
 
-                var url = $"{baseCurrent}/weather?lat={latitude}&lon={longitude}&units=metric";
+                var url = $"{baseCurrent}/weather?lat={latitude}&lon={longitude}&units=imperial";
                 if (!string.IsNullOrWhiteSpace(_apiKey))
-                    url += $"&appid={System.Net.WebUtility.UrlEncode(_apiKey)}";
+                    url += $"&appid={WebUtility.UrlEncode(_apiKey)}";
 
                 var json = await _http.GetStringAsync(url);
 
@@ -104,8 +143,8 @@ namespace Dashboard.Net.AI.Services
                     WindGust = j["wind"]?["gust"]?.Value<double?>(),
 
                     Weather = j["weather"] != null && j["weather"].Type == JTokenType.Array
-                        ? j["weather"].ToObject<System.Collections.Generic.List<WeatherDescription>>()!
-                        : new System.Collections.Generic.List<WeatherDescription>()
+                        ? j["weather"].ToObject<List<WeatherDescription>>()!
+                        : new List<WeatherDescription>()
                 };
 
                 return current;

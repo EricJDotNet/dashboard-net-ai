@@ -19,19 +19,35 @@ namespace Dashboard.Net.AI.Controllers
             _logger = logger;
         }
 
-        // GET /weather/reverse?lat=...&lon=...&limit=1
-        [HttpGet("reverse")]
-        public async Task<ActionResult<object>> ReverseGeocode([FromQuery] double lat, [FromQuery] double lon, [FromQuery] int limit = 1)
+		[HttpGet("search")]
+		public async Task<ActionResult> Search([FromQuery] string query)
+		{
+			if (string.IsNullOrWhiteSpace(query)) return BadRequest("Query is required.");
+
+			try
+			{
+				var jsonResult = await _weatherService.GetAutocompleteResultsAsync(query);
+				return Ok(jsonResult);
+			}
+			catch (HttpRequestException)
+			{
+				return StatusCode(502, "Error communicating with the geocoding provider.");
+			}
+		}
+
+		// GET /weather/reverse?lat=...&lon=...&limit=1
+		[HttpGet("reverse")]
+        public async Task<ActionResult> ReverseGeocode([FromQuery] double lat, [FromQuery] double lon, [FromQuery] int limit = 1)
         {
             if (double.IsNaN(lat) || double.IsNaN(lon))
                 return BadRequest(new { error = "Invalid latitude or longitude" });
 
-            var city = await _weatherService.ReverseGeocodeAsync(lat, lon, limit);
+            var location = await _weatherService.ReverseGeocodeAsync(lat, lon, limit);
 
-            if (city is null)
+            if (location is null)
                 return NotFound(new { error = "No city found for the provided coordinates" });
 
-            return Ok(new { city });
+            return Ok(location);
         }
 
         // GET /weather/current?lat=...&lon=...
