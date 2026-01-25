@@ -22,12 +22,14 @@ namespace Dashboard.Net.AI.Services
 		private readonly string _baseGeoUrl;
 		private readonly string _baseMapBoxUrl;
         private readonly string _baseWeatherUrl = "http://api.openweathermap.org/data/2.5";
+        private readonly string _baseXanoUrl;
         private readonly ILogger<WeatherService> _logger;
 
         public WeatherService(HttpClient http, IConfiguration config, ILogger<WeatherService> logger)
         {
             _http = http;
-            _apiKey = config["OpenWeatherMap:ApiKey"] ?? string.Empty;
+			_baseXanoUrl = config["Xano:BaseUrl"] ?? string.Empty;
+			_apiKey = config["OpenWeatherMap:ApiKey"] ?? string.Empty;
 			_mapBoxApiKey = config["Mapbox:ApiKey"] ?? string.Empty;
 			_baseGeoUrl = config["OpenWeatherMap:GeoBaseUrl"] ?? "http://api.openweathermap.org/geo/1.0";
 			_baseMapBoxUrl = config["Mapbox:BaseUrl"] ?? "https://api.mapbox.com/search/geocode/v6";
@@ -50,7 +52,11 @@ namespace Dashboard.Net.AI.Services
 						// 2. Deserialize directly from the stream
 						// This is the modern, high-performance way to do it
 						var result = await System.Text.Json.JsonSerializer.DeserializeAsync<MapboxV6Response>(stream);
-                        return result;
+						if (result != null)
+						{
+							await IncrementMapboxUsage();
+						}
+						return result;
 					}
 				}
 				catch (HttpRequestException ex)
@@ -72,20 +78,25 @@ namespace Dashboard.Net.AI.Services
 
 				using (HttpClient client = new HttpClient())
 				{
-					try
-					{
-						using (Stream stream = await client.GetStreamAsync(url))
-						{
-							// 2. Deserialize directly from the stream
-							// This is the modern, high-performance way to do it
-							return await System.Text.Json.JsonSerializer.DeserializeAsync<MapboxV6Response>(stream);
-						}
-					}
-					catch (HttpRequestException ex)
-					{
-						Console.WriteLine($"Error: {ex.Message}");
-						return null;
-					}
+                    try
+                    {
+                        using (Stream stream = await client.GetStreamAsync(url))
+                        {
+                            // 2. Deserialize directly from the stream
+                            // This is the modern, high-performance way to do it
+                            var result = await System.Text.Json.JsonSerializer.DeserializeAsync<MapboxV6Response>(stream);
+                            if (result != null)
+                            {
+                                await IncrementMapboxUsage();
+                            }
+                            return result;
+                        }
+                    }
+                    catch (HttpRequestException ex)
+                    {
+                        Console.WriteLine($"Error: {ex.Message}");
+                        return null;
+                    }
 				}
             }
             catch (Exception ex)
@@ -149,11 +160,31 @@ namespace Dashboard.Net.AI.Services
 
                 return current;
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting current weather lat={Latitude} lon={Longitude}", latitude, longitude);
                 return null;
             }
         }
-    }
+
+        private async Task<bool> IncrementMapboxUsage(int incrementBy = 1)
+        {
+            string url = $"{_baseXanoUrl}/Increment_Mapbox_Usage";
+
+            try
+            {
+				var payload = new { 
+                    CurrentYearMonth = DateTime.UtcNow.ToString("yyyy-MM"),
+                    IncrementBy = 1
+                };
+                var result = await _http.PostAsJsonAsync(url, payload);
+                return result.IsSuccessStatusCode;
+			}
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error incrementing Mapbox usage by {IncrementBy}", incrementBy);
+                return false;
+            }
+		}
+	}
 }
