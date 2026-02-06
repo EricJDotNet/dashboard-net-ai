@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace Dashboard.Net.AI.Models
 {
     public record WeatherDescription

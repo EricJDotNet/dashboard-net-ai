@@ -9,3 +9,6 @@ insert_final_newline = true
 # .NET Coding Conventions
 dotnet_analyzer_diagnostic.category-Style.severity = warning
 dotnet_style_qualification_for_field = false:silent
+
+# Disable IDE0052 (Private member is unused)
+dotnet_diagnostic.IDE0052.severity = none

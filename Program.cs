@@ -1,11 +1,4 @@
-using System;
-using Microsoft.Extensions.DependencyInjection;
-using Auth0.AspNetCore.Authentication.Api;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Dashboard.Net.AI.Extensions;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
 
 namespace Dashboard.Net.AI
 {
@@ -13,35 +6,35 @@ namespace Dashboard.Net.AI
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-            builder.Services.AddAuthorization();
-            builder.Services.AddControllers();
-            builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
-            builder.Services.AddApplicationServices();
+            _ = builder.Services.AddAuthorization();
+            _ = builder.Services.AddControllers();
+            _ = builder.Services.AddEndpointsApiExplorer();
+            _ = builder.Services.AddSwaggerGen();
+            _ = builder.Services.AddApplicationServices();
 
-            builder.Configuration.AddUserSecrets<Program>();
+            _ = builder.Configuration.AddUserSecrets<Program>();
 
-            var app = builder.Build();
+            WebApplication app = builder.Build();
 
             if (!app.Environment.IsDevelopment())
             {
-                app.UseHttpsRedirection();
+                _ = app.UseHttpsRedirection();
             }
 
-            app.UseAuthentication();
-            app.UseAuthorization();
+            _ = app.UseAuthentication();
+            _ = app.UseAuthorization();
 
             if (app.Environment.IsDevelopment())
             {
-                app.UseSwagger();
-                app.UseSwaggerUI();
+                _ = app.UseSwagger();
+                _ = app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
-            app.UseAuthorization();
-            app.MapControllers();
+            _ = app.UseHttpsRedirection();
+            _ = app.UseAuthorization();
+            _ = app.MapControllers();
 
             app.Run();
         }

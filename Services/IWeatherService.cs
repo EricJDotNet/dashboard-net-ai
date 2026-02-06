@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-using System.Text.Json;
 using Dashboard.Net.AI.Models;
 
 namespace Dashboard.Net.AI.Services
@@ -14,5 +12,5 @@ namespace Dashboard.Net.AI.Services
 
         Task<MapboxV6Response> GetAutocompleteResultsAsync(string query);
 
-	}
+    }
 }
