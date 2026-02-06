@@ -1,0 +1,11 @@
+root = true
+
+[*.cs]
+# Core EditorConfig Rules
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+
+# .NET Coding Conventions
+dotnet_analyzer_diagnostic.category-Style.severity = warning
+dotnet_style_qualification_for_field = false:silent
