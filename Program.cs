@@ -1,25 +1,42 @@
-var builder = WebApplication.CreateBuilder(args);
+using Dashboard.Net.AI.Extensions;
 
-// Add services to the container.
-
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+namespace Dashboard.Net.AI
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    public class Program
+    {
+        public static void Main(string[] args)
+        {
+            WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+            _ = builder.Services.AddAuthorization();
+            _ = builder.Services.AddControllers();
+            _ = builder.Services.AddEndpointsApiExplorer();
+            _ = builder.Services.AddSwaggerGen();
+            _ = builder.Services.AddApplicationServices();
+
+            _ = builder.Configuration.AddUserSecrets<Program>();
+
+            WebApplication app = builder.Build();
+
+            if (!app.Environment.IsDevelopment())
+            {
+                _ = app.UseHttpsRedirection();
+            }
+
+            _ = app.UseAuthentication();
+            _ = app.UseAuthorization();
+
+            if (app.Environment.IsDevelopment())
+            {
+                _ = app.UseSwagger();
+                _ = app.UseSwaggerUI();
+            }
+
+            _ = app.UseHttpsRedirection();
+            _ = app.UseAuthorization();
+            _ = app.MapControllers();
+
+            app.Run();
+        }
+    }
 }
-
-app.UseHttpsRedirection();
-
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
